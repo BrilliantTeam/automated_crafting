@@ -72,7 +72,7 @@ public class RecipeLoader {
         //    listener.sendMessage("(Re)loading recipes...");
         //instance.getLogger().info("(Re)loading recipes...");
             listener.sendMessage("§7｜§6系統§7｜§f飯娘：§7正在重新載入合成配方 ...");
-        instance.getLogger().info("§7｜§6系統§7｜§f飯娘：§7正在重新載入合成配方 ...");
+        instance.getLogger().info("自動合成器：正在重新載入合成配方 ...");
 
         long t = System.currentTimeMillis();
         recipes.clear();
@@ -100,7 +100,7 @@ public class RecipeLoader {
             //    listener.sendMessage("(Re)loaded " + j + " recipes, took " + (System.currentTimeMillis() - t) + " ms...");
             //instance.getLogger().info("(Re)loaded " + j + " recipes, took " + (System.currentTimeMillis() - t) + " ms...");
                 listener.sendMessage("§7｜§6系統§7｜§f飯娘：§7成功載入 " + j + " 個合成配方，耗時 " + (System.currentTimeMillis() - t) + " ms");
-            instance.getLogger().info("§7｜§6系統§7｜§f飯娘：§7成功載入 " + j + " 個合成配方，耗時 " + (System.currentTimeMillis() - t) + " ms");
+            instance.getLogger().info("自動合成器：成功載入 " + j + " 個合成配方，耗時 " + (System.currentTimeMillis() - t) + " ms");
         }
     }
 
