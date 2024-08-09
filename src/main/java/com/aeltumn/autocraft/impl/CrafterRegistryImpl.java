@@ -84,25 +84,30 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         if (m == null) return false;
         if (container.isLocked() || block.getBlockPower() > 0) {
             if (container.isLocked())
-                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter is locked"));
+                //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter is locked"));
+                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§c此自動合成器已被鎖定。"));
             else
-                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter has redstone signal blocking it"));
+                //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter has redstone signal blocking it"));
+                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§c有一個紅石訊號阻止了該操作，請先取消任何紅石訊號。"));
             return true;
         }
 
         if (!ConfigFile.isMaterialAllowed(m.getItem().getType())) {
-            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Crafting this item is disabled"));
+            //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Crafting this item is disabled"));
+            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§c此合成配方已被停用。"));
             return true;
         }
 
         final Set<CraftingRecipe> recipes = recipeLoader.getRecipesFor(m.getItem());
         if (recipes == null || recipes.size() == 0) {
-            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter can't craft this item"));
+            //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter can't craft this item"));
+            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§c此物品無法被設定為自動合成器配方。"));
             return false;
         }
 
         //Inform the player how many recipes are being accepted right now
-        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter is accepting " + recipes.size() + " recipe(s)"));
+        //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter is accepting " + recipes.size() + " recipe(s)"));
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§7已成功設定自動合成器配方。"));
         return true;
     }
 

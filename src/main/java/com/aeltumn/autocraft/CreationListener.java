@@ -141,7 +141,7 @@ public class CreationListener implements Listener {
                         //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
                         //Rename it to autocrafter to make this clear to the player.
                         BlockState state = bl.getState();
-                        ((Nameable) state).setCustomName("Autocrafter");
+                        ((Nameable) state).setCustomName("自動合成器");
                         state.update();
                     }
                 }
