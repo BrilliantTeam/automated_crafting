@@ -59,7 +59,7 @@ public class CreationListener implements Listener {
         if (isValidBlock(bl, true)) {
             e.setCancelled(true);
             if (ConfigFile.craftOnRedstonePulse()) {
-                Bukkit.getScheduler().runTask(AutomatedCrafting.INSTANCE, () -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
+                Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
             }
         }
     }
@@ -131,21 +131,20 @@ public class CreationListener implements Listener {
                 return;
             }
             //Wait a second for the item to be put into the frame.
-            new BukkitRunnable() {
-                public void run() {
-                    ItemStack item = ((ItemFrame) e.getRightClicked()).getItem();
-                    AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
 
-                    //Only rename if we have a valid item that we can craft in there.
-                    if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
-                        //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
-                        //Rename it to autocrafter to make this clear to the player.
-                        BlockState state = bl.getState();
-                        ((Nameable) state).setCustomName("自動合成器");
-                        state.update();
-                    }
+            Bukkit.getRegionScheduler().runDelayed(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> {
+                ItemStack item = ((ItemFrame) e.getRightClicked()).getItem();
+                AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
+
+                //Only rename if we have a valid item that we can craft in there.
+                if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
+                    //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
+                    //Rename it to autocrafter to make this clear to the player.
+                    BlockState state = bl.getState();
+                    ((Nameable) state).setCustomName("自動合成器");
+                    state.update();
                 }
-            }.runTaskLater(AutomatedCrafting.INSTANCE, 1);
+            }, 1);
         }
     }
 }

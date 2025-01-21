@@ -27,7 +27,7 @@ public class RecipeLoader {
 
         //We load the recipes the first tick after the server is done starting so
         //all recipes are loaded from data packs. We don't load asynchronously.
-        Bukkit.getScheduler().runTask(inst, () -> {
+        Bukkit.getGlobalRegionScheduler().run(inst, (ignored) -> {
             reload(null);
         });
     }

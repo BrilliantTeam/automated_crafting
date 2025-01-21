@@ -65,7 +65,7 @@ public final class ReflectionHelper {
      */
     public static Optional<Class<?>> getCraftBukkitClass(String name) {
         try {
-            if (cbPackage.equals("")) loadVersion(Bukkit.getServer().getClass().getPackage().getName());
+            // if (cbPackage.equals("")) loadVersion(Bukkit.getServer().getClass().getPackage().getName());
             return Optional.of(Class.forName(cbPackage + name));
         } catch (ClassNotFoundException e) {
             return Optional.empty();

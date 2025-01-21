@@ -2,6 +2,7 @@ package com.aeltumn.autocraft.api;
 
 import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.RecipeLoader;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -22,7 +23,7 @@ public abstract class CrafterRegistry {
     private static final long SAVE_DELAY = (150) * 1000; //Wait 2.5 minutes = 150 seconds
     protected final RecipeLoader recipeLoader;
     protected final File file;
-    private final BukkitTask saveTask;
+    private final ScheduledTask saveTask;
     protected ConcurrentHashMap<String, AutocrafterPositions> crafters = new ConcurrentHashMap<>();
     protected long saveTime = Long.MAX_VALUE;
 
@@ -33,7 +34,7 @@ public abstract class CrafterRegistry {
         load();
 
         // periodically try to save if the data is marked as dirty
-        saveTask = Bukkit.getScheduler().runTaskTimer(AutomatedCrafting.INSTANCE, () -> {
+        saveTask = Bukkit.getGlobalRegionScheduler().runAtFixedRate(AutomatedCrafting.INSTANCE, (ignored) -> {
             if (System.currentTimeMillis() > saveTime) {
                 forceSave();
             }

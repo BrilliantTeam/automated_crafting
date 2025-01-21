@@ -1,5 +1,6 @@
 package com.aeltumn.autocraft.impl;
 
+import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.api.Autocrafter;
 import com.aeltumn.autocraft.api.ChunkIdentifier;
 import org.bukkit.Bukkit;
@@ -12,7 +13,7 @@ import java.util.Objects;
 /**
  * Ticks all loaded autocrafters in the world.
  */
-public class MainCrafterTick extends BukkitRunnable {
+public class MainCrafterTick implements Runnable {
     private final CrafterRegistryImpl cr;
 
     public MainCrafterTick(final CrafterRegistryImpl crafterRegistry) {
@@ -33,7 +34,7 @@ public class MainCrafterTick extends BukkitRunnable {
 
                     Chunk chunk = w.getChunkAt(ci.getX(), ci.getZ());
                     for (Autocrafter a : Objects.requireNonNull(m.getInChunk(ci))) {
-                        a.tick(chunk);
+                        Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, w, ci.getX(), ci.getZ(), (ignored) -> a.tick(chunk));
                     }
                 }
             });
