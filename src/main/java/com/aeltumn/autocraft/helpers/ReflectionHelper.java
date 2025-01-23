@@ -39,6 +39,8 @@ public final class ReflectionHelper {
         }
         version = sb.toString();
         cbPackage = CB_STRING + (version.length() > 0 ? version + "." : "");
+        //System.out.println(version);
+        //System.out.println(cbPackage);
     }
 
     /**
