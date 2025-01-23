@@ -1,5 +1,7 @@
 package com.aeltumn.autocraft.helpers;
 
+import de.tr7zw.nbtapi.NBT;
+import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
@@ -13,6 +15,7 @@ import java.lang.reflect.Method;
 public final class SerializedItem implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    /*
     private static final Object NULL_OBJECT = null;
     private static final Class<?> craftItemStack = ReflectionHelper.getCraftBukkitClass("inventory.CraftItemStack").orElse(null);
     private static final Class<?> mojangsonParser = ReflectionHelper.getNMSClass("nbt.MojangsonParser").orElse(null);
@@ -23,6 +26,7 @@ public final class SerializedItem implements Serializable {
     private static final Method getTagMethod = ReflectionHelper.getMethod(itemStack, "getTagClone").orElse(null);
     private static final Method setTagMethod = ReflectionHelper.getMethod(itemStack, "setTagClone", nbtTagCompound).orElse(null);
     private static final Method asCraftMirrorMethod = ReflectionHelper.getMethod(craftItemStack, "asCraftMirror", itemStack).orElse(null);
+     */
 
     //All other properties of an item are stored in NBT but not material, durability or amount.
     private transient Material materialCache;
@@ -70,11 +74,9 @@ public final class SerializedItem implements Serializable {
         ItemStack ret = new ItemStack(materialCache, amount, durability);
         if (nbt != null) {
             try {
-                Object tag = parseMethod.invoke(null, nbt);
-                Object nmsStack = asNMSCopyMethod.invoke(null, ret);
-                if (!tag.toString().equalsIgnoreCase("{}")) setTagMethod.invoke(nmsStack, tag);
-                else setTagMethod.invoke(nmsStack, NULL_OBJECT);
-                ret = (ItemStack) asCraftMirrorMethod.invoke(null, nmsStack);
+                ret = NBT.itemStackFromNBT(
+                        NBT.parseNBT(nbt)
+                );
             } catch (Exception x) {
                 x.printStackTrace();
             }
@@ -93,8 +95,7 @@ public final class SerializedItem implements Serializable {
         amount = copy.getAmount();
         durability = copy.getDurability();
         try {
-            Object nmsStack = asNMSCopyMethod.invoke(null, item);
-            Object tag = getTagMethod.invoke(nmsStack);
+            ReadWriteNBT tag = NBT.itemStackToNBT(item);
             if (tag != null) {
                 nbt = tag.toString();
             }
