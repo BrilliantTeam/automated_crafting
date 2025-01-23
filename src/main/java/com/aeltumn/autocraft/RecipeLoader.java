@@ -2,6 +2,7 @@ package com.aeltumn.autocraft;
 
 import com.aeltumn.autocraft.api.CraftingRecipe;
 import com.aeltumn.autocraft.api.RecipeType;
+import com.aeltumn.autocraft.helpers.LRUCache;
 import com.aeltumn.autocraft.impl.BukkitRecipe;
 import com.aeltumn.autocraft.impl.recipes.FireworksRecipe;
 import com.aeltumn.autocraft.impl.recipes.SuspicousStewRecipe;
@@ -60,8 +61,14 @@ public class RecipeLoader {
      * Get all recipes that will create the given itemstack. If the given itemstack
      * has a displayname and the recipe result does not the recipe will not be returned!
      */
+    private final LRUCache<ItemStack, Set<CraftingRecipe>> lruRecipeCache = new LRUCache<>(125);
     public Set<CraftingRecipe> getRecipesFor(final ItemStack item) {
-        return recipes.stream().filter(f -> f.creates(item)).collect(Collectors.toSet());
+        if (lruRecipeCache.has(item))
+            return lruRecipeCache.get(item);
+
+        Set<CraftingRecipe> recipeSet = recipes.stream().filter(f -> f.creates(item)).collect(Collectors.toSet());
+        lruRecipeCache.put(item, recipeSet);
+        return recipeSet;
     }
 
     /**

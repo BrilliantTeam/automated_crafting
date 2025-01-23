@@ -72,7 +72,7 @@ public class Utils {
         // the metadata isn't important and it should accept any type. We always
         // pass the ingredient as a so if a has a durability of -1 we only compare
         // materials. (Bukkit changes -1 to Short.MAX_VALUE)
-        if (a != null && b != null && a.getDurability() == Short.MAX_VALUE) {
+        if (a != null && b != null && !a.hasItemMeta() && !b.hasItemMeta()) {
             return a.getType() == b.getType();
         }
         return a != null && a.isSimilar(b);
