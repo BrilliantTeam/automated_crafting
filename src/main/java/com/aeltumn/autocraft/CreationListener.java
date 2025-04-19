@@ -17,6 +17,7 @@ import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -28,9 +29,10 @@ public class CreationListener implements Listener {
      */
     public static boolean isValidBlock(final Block bl, boolean existing) {
         //If the block is not any of the allowed states.
-        if ((!ConfigFile.allowDispensers() || !(bl.getState() instanceof Dispenser)) &&
-                (!ConfigFile.allowChests() || !(bl.getState() instanceof Chest)) &&
-                !(bl.getState() instanceof Dropper))
+        BlockState state = bl.getState(false);
+        if ((!ConfigFile.allowDispensers() || !(state instanceof Dispenser)) &&
+                (!ConfigFile.allowChests() || !(state instanceof Chest)) &&
+                !(state instanceof Dropper))
             return false;
 
         //Test if we can find an autocrafter on this block if applicable.
@@ -41,8 +43,9 @@ public class CreationListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(final InventoryMoveItemEvent e) {
         //Autocrafters can't drop items normally. This is to avoid dispensing ingredients when powered.
-        if (e.getSource().getHolder() instanceof Container) {
-            Block bl = ((Container) e.getSource().getHolder()).getBlock();
+        InventoryHolder holder = e.getSource().getHolder(false);
+        if (holder instanceof Container) {
+            Block bl = ((Container) holder).getBlock();
             if (isValidBlock(bl, true)) {
                 e.setCancelled(true);
                 if (ConfigFile.craftOnRedstonePulse()) {
