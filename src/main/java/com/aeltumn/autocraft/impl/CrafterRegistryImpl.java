@@ -24,7 +24,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileReader;
@@ -38,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class CrafterRegistryImpl extends CrafterRegistry {
     public static final int VERSION = 2;
-    private final ScheduledTask mainTick;
+    private ScheduledTask mainTick;
 
     public CrafterRegistryImpl(JavaPlugin jp) {
         super();
