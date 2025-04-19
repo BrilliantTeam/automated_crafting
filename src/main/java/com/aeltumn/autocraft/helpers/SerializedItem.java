@@ -1,7 +1,9 @@
 package com.aeltumn.autocraft.helpers;
 
 import de.tr7zw.nbtapi.NBT;
+import de.tr7zw.nbtapi.NBTItem;
 import de.tr7zw.nbtapi.iface.ReadWriteNBT;
+import de.tr7zw.nbtapi.utils.DataFixerUtil;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
@@ -74,8 +76,18 @@ public final class SerializedItem implements Serializable {
         ItemStack ret = new ItemStack(materialCache, amount, durability);
         if (nbt != null) {
             try {
+                ReadWriteNBT targetNbt = NBT.parseNBT(nbt);
+                if (!targetNbt.hasTag("Count") && !targetNbt.hasTag("count"))
+                    targetNbt.setInteger("Count", amount);
+                if (!targetNbt.hasTag("Id") && !targetNbt.hasTag("id"))
+                    targetNbt.setString("id", materialCache.getKey().toString());
+                ReadWriteNBT itemNbt = DataFixerUtil.fixUpItemData(
+                        targetNbt,
+                        DataFixerUtil.VERSION1_12_2,
+                        DataFixerUtil.getCurrentVersion()
+                );
                 ret = NBT.itemStackFromNBT(
-                        NBT.parseNBT(nbt)
+                        itemNbt
                 );
             } catch (Exception x) {
                 x.printStackTrace();
