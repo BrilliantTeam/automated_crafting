@@ -1,12 +1,9 @@
 package com.aeltumn.autocraft;
 
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Nameable;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Container;
+import org.bukkit.block.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.event.EventHandler;
@@ -22,105 +19,135 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class CreationListener implements Listener {
-    public static boolean isValidBlock(Block bl, boolean existing) {
+    /**
+     * Returns true if this block is a valid block and optionally if it's seen as an autocrafter.
+     *
+     * @param existing Only return true if this block is also already an autocrafter.
+     */
+    public static boolean isValidBlock(final Block bl, boolean existing) {
+        //If the block is not any of the allowed states.
         BlockState state = bl.getState(false);
-        if ((!ConfigFile.allowDispensers() || !(state instanceof org.bukkit.block.Dispenser)) && (
-        !ConfigFile.allowChests() || !(state instanceof org.bukkit.block.Chest)) && !(state instanceof org.bukkit.block.Dropper))
-        return false; 
-        return (!existing || AutomatedCrafting.INSTANCE.getCrafterRegistry().isAutocrafter(bl));
+        if ((!ConfigFile.allowDispensers() || !(state instanceof Dispenser)) &&
+                (!ConfigFile.allowChests() || !(state instanceof Chest)) &&
+                !(state instanceof Dropper))
+            return false;
+
+        //Test if we can find an autocrafter on this block if applicable.
+        return !existing || AutomatedCrafting.INSTANCE.getCrafterRegistry().isAutocrafter(bl);
     }
-    
+
+    //This method specifically is needed because when droppers put the item directly into the neighbouring container the BlockDispenseEvent is not fired.
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(InventoryMoveItemEvent e) {
-        InventoryHolder sourceHolder = e.getSource().getHolder(false);
+        InventoryHolder sourceHolder = e.getSource().getHolder();
         if (sourceHolder instanceof Container) {
         Block bl = ((Container)sourceHolder).getBlock();
         if (isValidBlock(bl, true)) {
             e.setCancelled(true);
             if (ConfigFile.craftOnRedstonePulse()) {
-            InventoryHolder destHolder = e.getDestination().getHolder(false);
+            InventoryHolder destHolder = e.getDestination().getHolder();
             if (!(destHolder instanceof org.bukkit.block.Hopper) && !(destHolder instanceof org.bukkit.entity.minecart.HopperMinecart))
                 AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl); 
             } 
         } 
         } 
     }
-    
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDispense(BlockDispenseEvent e) {
+    public void onDispense(final BlockDispenseEvent e) {
+        //Autocrafters can't drop items normally. This is to avoid dispensing ingredients when powered.
         Block bl = e.getBlock();
         if (isValidBlock(bl, true)) {
-        e.setCancelled(true);
-        if (ConfigFile.craftOnRedstonePulse())
-            Bukkit.getRegionScheduler().run((Plugin)AutomatedCrafting.INSTANCE, bl.getLocation(), ignored -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl)); 
-        } 
+            e.setCancelled(true);
+            if (ConfigFile.craftOnRedstonePulse()) {
+                Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
+            }
+        }
     }
-    
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onCreate(HangingPlaceEvent e) {
+    public void onCreate(final HangingPlaceEvent e) {
         Block bl = e.getEntity().getLocation().getBlock().getRelative(e.getEntity().getAttachedFace());
         if (isValidBlock(bl, false))
-        AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), null); 
+            AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), null);
     }
-    
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onBreak(BlockBreakEvent e) {
+    public void onBreak(final BlockBreakEvent e) {
+        //Destroying the item frame break the autocrafter.
         breakCrafter(e.getBlock(), true);
     }
-    
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDestroy(HangingBreakEvent e) {
-        destroyCrafter((Entity)e.getEntity(), false);
+    public void onDestroy(final HangingBreakEvent e) {
+        //Destroying the item frame break the autocrafter.
+        destroyCrafter(e.getEntity(), false);
     }
-    
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onStealItem(EntityDamageByEntityEvent e) {
+    public void onStealItem(final EntityDamageByEntityEvent e) {
+        //Stealing the item from the item frame destroys the autocrafter.
         destroyCrafter(e.getEntity(), true);
     }
-    
-    private void destroyCrafter(Entity itemFrame, boolean clean) {
-        if (!(itemFrame instanceof ItemFrame))
-        return; 
-        Block bl = itemFrame.getLocation().getBlock().getRelative(((ItemFrame)itemFrame).getAttachedFace());
+
+    private void destroyCrafter(final Entity itemFrame, final boolean clean) {
+        if (!(itemFrame instanceof ItemFrame)) return;
+        final Block bl = itemFrame.getLocation().getBlock().getRelative(((ItemFrame) itemFrame).getAttachedFace());
         breakCrafter(bl, clean);
     }
-    
-    private void breakCrafter(Block bl, boolean clean) {
+
+    private void breakCrafter(final Block bl, final boolean clean) {
         if (isValidBlock(bl, true)) {
-        AutomatedCrafting.INSTANCE.getCrafterRegistry().destroy(bl.getLocation());
-        if (clean) {
-            BlockState state = bl.getState();
-            ((Nameable)state).setCustomName(null);
-            state.update();
-        } 
-        } 
-    }
-    
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onClickItemFrame(PlayerInteractEntityEvent e) {
-        if (!(e.getRightClicked() instanceof ItemFrame))
-        return; 
-        ItemStack heldItem = (e.getHand() == EquipmentSlot.HAND) ? e.getPlayer().getInventory().getItemInMainHand() : e.getPlayer().getInventory().getItemInOffHand();
-        if (heldItem == null || heldItem.getType() == Material.AIR)
-        return; 
-        Block bl = e.getRightClicked().getLocation().getBlock().getRelative(((ItemFrame)e.getRightClicked()).getAttachedFace());
-        if (isValidBlock(bl, false)) {
-        if (((ItemFrame)e.getRightClicked()).getItem().getType() != Material.AIR) {
-            e.setCancelled(true);
-            return;
-        } 
-        Bukkit.getRegionScheduler().runDelayed((Plugin)AutomatedCrafting.INSTANCE, bl.getLocation(), ignored -> {
-                ItemStack item = ((ItemFrame)e.getRightClicked()).getItem();
-                AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
-                if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
+            AutomatedCrafting.INSTANCE.getCrafterRegistry().destroy(bl.getLocation());
+
+            //Clean should be true when the item is removed from the item frame. (can actually be true at all times but we don't need to update droppers randomly if you're placing down item frames, could break redstone)
+            if (clean) {
                 BlockState state = bl.getState();
-                ((Nameable)state).setCustomName("自動合成器");
+                ((Nameable) state).setCustomName(null);
                 state.update();
-                } 
-            }1L);
-        } 
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onClickItemFrame(final PlayerInteractEntityEvent e) {
+        // ignore clicking non-item frames
+        if (!(e.getRightClicked() instanceof ItemFrame)) {
+            return;
+        }
+
+        // ignore clicking whilst holding nothing
+        ItemStack heldItem = e.getHand() == EquipmentSlot.HAND ? e.getPlayer().getInventory().getItemInMainHand() :
+                e.getPlayer().getInventory().getItemInOffHand();
+        if (heldItem == null || heldItem.getType() == Material.AIR) {
+            return;
+        }
+
+        Block bl = e.getRightClicked().getLocation().getBlock().getRelative(((ItemFrame) e.getRightClicked()).getAttachedFace());
+        if (isValidBlock(bl, false)) {
+            //If there's already something in the item frame, cancel!
+            //This prevents rotating the item in the item frame.
+            if (((ItemFrame) e.getRightClicked()).getItem().getType() != Material.AIR) {
+                e.setCancelled(true);
+                return;
+            }
+            //Wait a second for the item to be put into the frame.
+
+            Bukkit.getRegionScheduler().runDelayed(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> {
+                ItemStack item = ((ItemFrame) e.getRightClicked()).getItem();
+                AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
+
+                //Only rename if we have a valid item that we can craft in there.
+                if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
+                    //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
+                    //Rename it to autocrafter to make this clear to the player.
+                    BlockState state = bl.getState();
+                    ((Nameable) state).setCustomName("自動合成器");
+                    state.update();
+                }
+            }, 1);
+        }
     }
 }
