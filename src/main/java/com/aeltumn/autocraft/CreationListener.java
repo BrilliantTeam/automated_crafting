@@ -17,8 +17,10 @@ import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.entity.minecart.HopperMinecart;
 
 public class CreationListener implements Listener {
     /**
@@ -39,17 +41,19 @@ public class CreationListener implements Listener {
 
     //This method specifically is needed because when droppers put the item directly into the neighbouring container the BlockDispenseEvent is not fired.
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDispense(final InventoryMoveItemEvent e) {
-        //Autocrafters can't drop items normally. This is to avoid dispensing ingredients when powered.
-        if (e.getSource().getHolder() instanceof Container) {
-            Block bl = ((Container) e.getSource().getHolder()).getBlock();
-            if (isValidBlock(bl, true)) {
-                e.setCancelled(true);
-                if (ConfigFile.craftOnRedstonePulse()) {
-                    AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl);
-                }
-            }
-        }
+    public void onDispense(InventoryMoveItemEvent e) {
+        InventoryHolder sourceHolder = e.getSource().getHolder();
+        if (sourceHolder instanceof Container) {
+        Block bl = ((Container)sourceHolder).getBlock();
+        if (isValidBlock(bl, true)) {
+            e.setCancelled(true);
+            if (ConfigFile.craftOnRedstonePulse()) {
+            InventoryHolder destHolder = e.getDestination().getHolder();
+            if (!(destHolder instanceof org.bukkit.block.Hopper) && !(destHolder instanceof org.bukkit.entity.minecart.HopperMinecart))
+                AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl); 
+            } 
+        } 
+        } 
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
