@@ -1,0 +1,24 @@
+main: com.aeltumn.autocraft.AutomatedCrafting
+name: automated_crafting
+version: 2.6.2
+description: An open-source autocrafting plugin for Bukkit.
+authors:
+ - Aeltumn
+api-version: 1.18
+load: STARTUP
+depends: [NBTAPI]
+folia-supported: true
+libraries:
+ - "com.google.code.gson:gson:2.8.7"
+commands:
+  reloadrecipes:
+    description: "Reloads all recipes for the autocrafters, gets ran automatically\
+      \ when running /reload!"
+    permission: automatedcrafting.reload
+permissions:
+  automatedcrafting.makeautocrafters:
+    description: Allows players to make autocrafters.
+    default: "true"
+  automatedcrafting.reload:
+    description: Allows using /reloadrecipes.
+    default: op
