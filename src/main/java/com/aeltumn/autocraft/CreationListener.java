@@ -20,6 +20,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.entity.minecart.HopperMinecart;
 
 public class CreationListener implements Listener {
     /**
