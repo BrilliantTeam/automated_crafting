@@ -203,22 +203,6 @@ public class BukkitRecipe implements CraftingRecipe {
 
     @Override
     public boolean creates(ItemStack stack) {
-        /*var clone = stack.clone();
-
-        // For all block state meta items we clear the block entity tag off the item we use for comparisons
-        // so a full shulker box is accepted as craftable
-        if (clone.hasItemMeta() && clone.getItemMeta() instanceof BlockStateMeta meta) {
-            if (blockEntityTag != null) {
-                try {
-                    blockEntityTag.set(meta, null);
-                } catch (Exception x) {
-                    x.printStackTrace();
-                }
-            }
-            clone.setItemMeta(meta);
-        }
-
-        return Utils.isSimilar(result, clone);*/
         // xuancat 這裡可以改成如果有 blockEntityTag 再執行複製
         if (stack.hasItemMeta() && blockEntityTag != null && stack.getItemMeta() instanceof BlockStateMeta meta) {
             return Optional.of(new ItemStack(stack.getType(), stack.getAmount()))

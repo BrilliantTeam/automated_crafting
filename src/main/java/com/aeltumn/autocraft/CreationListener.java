@@ -30,9 +30,10 @@ public class CreationListener implements Listener {
      */
     public static boolean isValidBlock(final Block bl, boolean existing) {
         //If the block is not any of the allowed states.
-        if ((!ConfigFile.allowDispensers() || !(bl.getState() instanceof Dispenser)) &&
-                (!ConfigFile.allowChests() || !(bl.getState() instanceof Chest)) &&
-                !(bl.getState() instanceof Dropper))
+        BlockState state = bl.getState(false);
+        if ((!ConfigFile.allowDispensers() || !(state instanceof Dispenser)) &&
+                (!ConfigFile.allowChests() || !(state instanceof Chest)) &&
+                !(state instanceof Dropper))
             return false;
 
         //Test if we can find an autocrafter on this block if applicable.
@@ -55,7 +56,6 @@ public class CreationListener implements Listener {
         } 
         } 
     }
-
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(final BlockDispenseEvent e) {
         //Autocrafters can't drop items normally. This is to avoid dispensing ingredients when powered.
@@ -63,7 +63,7 @@ public class CreationListener implements Listener {
         if (isValidBlock(bl, true)) {
             e.setCancelled(true);
             if (ConfigFile.craftOnRedstonePulse()) {
-                Bukkit.getScheduler().runTask(AutomatedCrafting.INSTANCE, () -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
+                Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
             }
         }
     }
@@ -135,21 +135,20 @@ public class CreationListener implements Listener {
                 return;
             }
             //Wait a second for the item to be put into the frame.
-            new BukkitRunnable() {
-                public void run() {
-                    ItemStack item = ((ItemFrame) e.getRightClicked()).getItem();
-                    AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
 
-                    //Only rename if we have a valid item that we can craft in there.
-                    if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
-                        //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
-                        //Rename it to autocrafter to make this clear to the player.
-                        BlockState state = bl.getState();
-                        ((Nameable) state).setCustomName("自動合成器");
-                        state.update();
-                    }
+            Bukkit.getRegionScheduler().runDelayed(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> {
+                ItemStack item = ((ItemFrame) e.getRightClicked()).getItem();
+                AutomatedCrafting.INSTANCE.getCrafterRegistry().create(bl.getLocation(), e.getPlayer(), item);
+
+                //Only rename if we have a valid item that we can craft in there.
+                if (AutomatedCrafting.INSTANCE.getCrafterRegistry().checkBlock(bl.getLocation(), e.getPlayer())) {
+                    //The block is named autocrafter is it has an item frame AND there's an item in the item frame. If the item frame is empty the name should be reset.
+                    //Rename it to autocrafter to make this clear to the player.
+                    BlockState state = bl.getState();
+                    ((Nameable) state).setCustomName("自動合成器");
+                    state.update();
                 }
-            }.runTaskLater(AutomatedCrafting.INSTANCE, 1);
+            }, 1);
         }
     }
 }

@@ -10,9 +10,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -22,7 +24,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileReader;
@@ -36,14 +37,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class CrafterRegistryImpl extends CrafterRegistry {
     public static final int VERSION = 2;
-    private final BukkitTask mainTick;
+    private ScheduledTask mainTick;
 
     public CrafterRegistryImpl(JavaPlugin jp) {
         super();
 
         if (!ConfigFile.craftOnRedstonePulse()) {
             var speed = ConfigFile.ticksPerCraft();
-            mainTick = new MainCrafterTick(this).runTaskTimer(jp, speed, speed);
+            Runnable task = new MainCrafterTick(this);
+            mainTick = Bukkit.getGlobalRegionScheduler().runAtFixedRate(jp, (ignored) -> task.run(), speed, speed);
         } else {
             mainTick = null;
         }
