@@ -3,6 +3,7 @@ package com.aeltumn.autocraft;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Nameable;
+import org.bukkit.Location;
 import org.bukkit.block.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
@@ -44,17 +45,38 @@ public class CreationListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(InventoryMoveItemEvent e) {
         InventoryHolder sourceHolder = e.getSource().getHolder();
-        if (sourceHolder instanceof Container) {
-        Block bl = ((Container)sourceHolder).getBlock();
-        if (isValidBlock(bl, true)) {
-            e.setCancelled(true);
-            if (ConfigFile.craftOnRedstonePulse()) {
-            InventoryHolder destHolder = e.getDestination().getHolder();
-            if (!(destHolder instanceof org.bukkit.block.Hopper) && !(destHolder instanceof org.bukkit.entity.minecart.HopperMinecart))
-                AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl); 
-            } 
-        } 
-        } 
+        if (!(sourceHolder instanceof Container)) return;
+
+        Block sourceBlock = ((Container) sourceHolder).getBlock();
+        if (!isValidBlock(sourceBlock, true)) return;
+
+        e.setCancelled(true);
+
+        if (!ConfigFile.craftOnRedstonePulse()) return;
+
+        InventoryHolder destHolder = e.getDestination().getHolder();
+        boolean isInputFromBelow = false;
+
+        if (destHolder instanceof org.bukkit.block.Hopper hopper) {
+            Block hopperBlock = hopper.getBlock();
+            isInputFromBelow = hopperBlock.getX() == sourceBlock.getX() &&
+                            hopperBlock.getY() == sourceBlock.getY() - 1 &&
+                            hopperBlock.getZ() == sourceBlock.getZ();
+        }
+        else if (destHolder instanceof HopperMinecart minecart) {
+            Location sourceCenter = sourceBlock.getLocation().add(0.5, 0.5, 0.5);
+            Location cartLoc = minecart.getLocation();
+
+            double dx = Math.abs(cartLoc.getX() - sourceCenter.getX());
+            double dz = Math.abs(cartLoc.getZ() - sourceCenter.getZ());
+            double dy = cartLoc.getY() - sourceBlock.getY();
+
+            isInputFromBelow = dx < 0.6 && dz < 0.6 && dy > -1.5 && dy < 0;
+        }
+
+        if (!isInputFromBelow) {
+            AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(sourceBlock);
+        }
     }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(final BlockDispenseEvent e) {
