@@ -22,6 +22,10 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.entity.minecart.HopperMinecart;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.block.data.Directional;
+
+import java.util.Collection;
 
 public class CreationListener implements Listener {
     /**
@@ -41,6 +45,25 @@ public class CreationListener implements Listener {
         return !existing || AutomatedCrafting.INSTANCE.getCrafterRegistry().isAutocrafter(bl);
     }
 
+    private ItemStack getOutputItem(Block block) {
+        Location center = block.getLocation().add(0.5, 0.5, 0.5);
+        BoundingBox box = BoundingBox.of(center.clone().subtract(1, 1, 1), center.clone().add(1, 1, 1));
+        Collection<Entity> entities = block.getWorld().getNearbyEntities(box);
+        for (Entity entity : entities) {
+            if (entity instanceof ItemFrame frame) {
+                Block attachedBlock = frame.getLocation().getBlock().getRelative(frame.getAttachedFace());
+                if (attachedBlock.equals(block)) {
+                    return frame.getItem();
+                }
+            }
+        }
+        return new ItemStack(Material.AIR);
+    }
+
+    private boolean isShulker(Material mat) {
+        return mat == Material.SHULKER_BOX || mat.name().endsWith("_SHULKER_BOX");
+    }
+
     //This method specifically is needed because when droppers put the item directly into the neighbouring container the BlockDispenseEvent is not fired.
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(InventoryMoveItemEvent e) {
@@ -49,6 +72,18 @@ public class CreationListener implements Listener {
 
         Block sourceBlock = ((Container) sourceHolder).getBlock();
         if (!isValidBlock(sourceBlock, true)) return;
+
+        ItemStack output = getOutputItem(sourceBlock);
+        boolean outputShulker = isShulker(output.getType());
+
+        BlockState state = sourceBlock.getState();
+        org.bukkit.block.data.BlockData data = state.getBlockData();
+        if (!(data instanceof Directional)) return;
+        BlockFace facing = ((Directional) data).getFacing();
+        Block targetBlock = sourceBlock.getRelative(facing);
+        boolean targetShulker = isShulker(targetBlock.getType());
+
+        boolean cancelCraft = outputShulker && targetShulker;
 
         e.setCancelled(true);
 
@@ -75,7 +110,9 @@ public class CreationListener implements Listener {
         }
 
         if (!isInputFromBelow) {
-            AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(sourceBlock);
+            if (!cancelCraft) {
+                AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(sourceBlock);
+            }
         }
     }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -85,7 +122,19 @@ public class CreationListener implements Listener {
         if (isValidBlock(bl, true)) {
             e.setCancelled(true);
             if (ConfigFile.craftOnRedstonePulse()) {
-                Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
+                ItemStack output = getOutputItem(bl);
+                boolean outputShulker = isShulker(output.getType());
+
+                BlockState state = bl.getState();
+                org.bukkit.block.data.BlockData data = state.getBlockData();
+                if (!(data instanceof Directional)) return;
+                BlockFace facing = ((Directional) data).getFacing();
+                Block target = bl.getRelative(facing);
+                boolean targetShulker = isShulker(target.getType());
+
+                if (!(outputShulker && targetShulker)) {
+                    Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
+                }
             }
         }
     }
