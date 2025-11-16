@@ -24,10 +24,20 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.entity.minecart.HopperMinecart;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.block.data.Directional;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class CreationListener implements Listener {
+    private static final NamespacedKey KEY_ENABLE = new NamespacedKey("hopper_filter", "enable");
+    private static final NamespacedKey KEY_STRICT = new NamespacedKey("hopper_filter", "strict");
+    private static final NamespacedKey KEY_MODE = new NamespacedKey("hopper_filter", "mode");
+    private static final NamespacedKey KEY_ITEMS = new NamespacedKey("hopper_filter", "items");
+    private static final NamespacedKey KEY_MATERIAL = new NamespacedKey("hopper_filter", "materials");
+
     /**
      * Returns true if this block is a valid block and optionally if it's seen as an autocrafter.
      *
@@ -110,7 +120,77 @@ public class CreationListener implements Listener {
         }
 
         if (!isInputFromBelow) {
-            if (!cancelCraft) {
+            // Check if target is Hopper and apply filter logic
+            boolean allowTransfer = true;
+            if (targetBlock.getState(false) instanceof Hopper targetHopper) {
+                var pdc = targetHopper.getPersistentDataContainer();
+                boolean isEnable = pdc.getOrDefault(KEY_ENABLE, PersistentDataType.BOOLEAN, false);
+                if (isEnable) {
+                    ItemStack outputItem = getOutputItem(sourceBlock);
+                    if (outputItem.getType() == Material.AIR) {
+                        allowTransfer = false;
+                    } else {
+                        List<byte[]> rawItems = pdc.getOrDefault(KEY_ITEMS, PersistentDataType.LIST.byteArrays(), List.of());
+                        List<ItemStack> filterItems = new ArrayList<>();
+                        for (byte[] bytes : rawItems) {
+                            try {
+                                filterItems.add(ItemStack.deserializeBytes(bytes));
+                            } catch (Exception ex) {
+                                // Ignore invalid items
+                            }
+                        }
+
+                        List<String> rawMaterials = pdc.getOrDefault(KEY_MATERIAL, PersistentDataType.LIST.strings(), List.of());
+                        List<Material> filterMaterials = new ArrayList<>();
+                        for (String str : rawMaterials) {
+                            Material mat = Material.getMaterial(str);
+                            if (mat != null) {
+                                filterMaterials.add(mat);
+                            }
+                        }
+
+                        boolean matches = false;
+                        Material outputType = outputItem.getType();
+
+                        boolean isStrict = pdc.getOrDefault(KEY_STRICT, PersistentDataType.BOOLEAN, false);
+
+                        if (isStrict) {
+                            // Only match materials
+                            if (filterMaterials.contains(outputType)) {
+                                matches = true;
+                            }
+                            for (ItemStack fi : filterItems) {
+                                if (fi.getType() == outputType) {
+                                    matches = true;
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Match materials or full items (including meta)
+                            if (filterMaterials.contains(outputType)) {
+                                matches = true;
+                            }
+                            for (ItemStack fi : filterItems) {
+                                if (outputItem.isSimilar(fi)) {
+                                    matches = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        int modeOrdinal = pdc.getOrDefault(KEY_MODE, PersistentDataType.INTEGER, 0);
+                        boolean isWhitelist = modeOrdinal == 0; // Assuming 0 is WHITELIST, 1 is BLACKLIST
+
+                        if (isWhitelist) {
+                            allowTransfer = matches;
+                        } else {
+                            allowTransfer = !matches;
+                        }
+                    }
+                }
+            }
+
+            if (!cancelCraft && allowTransfer) {
                 AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(sourceBlock);
             }
         }
@@ -132,7 +212,77 @@ public class CreationListener implements Listener {
                 Block target = bl.getRelative(facing);
                 boolean targetShulker = isShulker(target.getType());
 
-                if (!(outputShulker && targetShulker)) {
+                // Check if target is Hopper and apply filter logic
+                boolean allowTransfer = true;
+                if (target.getState(false) instanceof Hopper targetHopper) {
+                    var pdc = targetHopper.getPersistentDataContainer();
+                    boolean isEnable = pdc.getOrDefault(KEY_ENABLE, PersistentDataType.BOOLEAN, false);
+                    if (isEnable) {
+                        ItemStack outputItem = getOutputItem(bl);
+                        if (outputItem.getType() == Material.AIR) {
+                            allowTransfer = false;
+                        } else {
+                            List<byte[]> rawItems = pdc.getOrDefault(KEY_ITEMS, PersistentDataType.LIST.byteArrays(), List.of());
+                            List<ItemStack> filterItems = new ArrayList<>();
+                            for (byte[] bytes : rawItems) {
+                                try {
+                                    filterItems.add(ItemStack.deserializeBytes(bytes));
+                                } catch (Exception ex) {
+                                    // Ignore invalid items
+                                }
+                            }
+
+                            List<String> rawMaterials = pdc.getOrDefault(KEY_MATERIAL, PersistentDataType.LIST.strings(), List.of());
+                            List<Material> filterMaterials = new ArrayList<>();
+                            for (String str : rawMaterials) {
+                                Material mat = Material.getMaterial(str);
+                                if (mat != null) {
+                                    filterMaterials.add(mat);
+                                }
+                            }
+
+                            boolean matches = false;
+                            Material outputType = outputItem.getType();
+
+                            boolean isStrict = pdc.getOrDefault(KEY_STRICT, PersistentDataType.BOOLEAN, false);
+
+                            if (isStrict) {
+                                // Only match materials
+                                if (filterMaterials.contains(outputType)) {
+                                    matches = true;
+                                }
+                                for (ItemStack fi : filterItems) {
+                                    if (fi.getType() == outputType) {
+                                        matches = true;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Match materials or full items (including meta)
+                                if (filterMaterials.contains(outputType)) {
+                                    matches = true;
+                                }
+                                for (ItemStack fi : filterItems) {
+                                    if (outputItem.isSimilar(fi)) {
+                                        matches = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            int modeOrdinal = pdc.getOrDefault(KEY_MODE, PersistentDataType.INTEGER, 0);
+                            boolean isWhitelist = modeOrdinal == 0; // Assuming 0 is WHITELIST, 1 is BLACKLIST
+
+                            if (isWhitelist) {
+                                allowTransfer = matches;
+                            } else {
+                                allowTransfer = !matches;
+                            }
+                        }
+                    }
+                }
+
+                if (!(outputShulker && targetShulker) && allowTransfer) {
                     Bukkit.getRegionScheduler().run(AutomatedCrafting.INSTANCE, bl.getLocation(), (ignored) -> AutomatedCrafting.INSTANCE.getCrafterRegistry().tick(bl));
                 }
             }
