@@ -77,17 +77,18 @@ public class CreationListener implements Listener {
     //This method specifically is needed because when droppers put the item directly into the neighbouring container the BlockDispenseEvent is not fired.
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDispense(InventoryMoveItemEvent e) {
-        InventoryHolder sourceHolder = e.getSource().getHolder();
-        if (!(sourceHolder instanceof Container)) return;
+        //Never call getHolder() here: this event fires for every hopper transfer on the server and CraftBukkit
+        //builds a full BlockState snapshot for it (serializing all NBT of e.g. a shulker box). getLocation() is free.
+        Location sourceLoc = e.getSource().getLocation();
+        if (sourceLoc == null) return;
 
-        Block sourceBlock = ((Container) sourceHolder).getBlock();
+        Block sourceBlock = sourceLoc.getBlock();
         if (!isValidBlock(sourceBlock, true)) return;
 
         ItemStack output = getOutputItem(sourceBlock);
         boolean outputShulker = isShulker(output.getType());
 
-        BlockState state = sourceBlock.getState();
-        org.bukkit.block.data.BlockData data = state.getBlockData();
+        org.bukkit.block.data.BlockData data = sourceBlock.getBlockData();
         if (!(data instanceof Directional)) return;
         BlockFace facing = ((Directional) data).getFacing();
         Block targetBlock = sourceBlock.getRelative(facing);
@@ -126,7 +127,7 @@ public class CreationListener implements Listener {
                 var pdc = targetHopper.getPersistentDataContainer();
                 boolean isEnable = pdc.getOrDefault(KEY_ENABLE, PersistentDataType.BOOLEAN, false);
                 if (isEnable) {
-                    ItemStack outputItem = getOutputItem(sourceBlock);
+                    ItemStack outputItem = output;
                     if (outputItem.getType() == Material.AIR) {
                         allowTransfer = false;
                     } else {
@@ -205,8 +206,7 @@ public class CreationListener implements Listener {
                 ItemStack output = getOutputItem(bl);
                 boolean outputShulker = isShulker(output.getType());
 
-                BlockState state = bl.getState();
-                org.bukkit.block.data.BlockData data = state.getBlockData();
+                org.bukkit.block.data.BlockData data = bl.getBlockData();
                 if (!(data instanceof Directional)) return;
                 BlockFace facing = ((Directional) data).getFacing();
                 Block target = bl.getRelative(facing);
@@ -218,7 +218,7 @@ public class CreationListener implements Listener {
                     var pdc = targetHopper.getPersistentDataContainer();
                     boolean isEnable = pdc.getOrDefault(KEY_ENABLE, PersistentDataType.BOOLEAN, false);
                     if (isEnable) {
-                        ItemStack outputItem = getOutputItem(bl);
+                        ItemStack outputItem = output;
                         if (outputItem.getType() == Material.AIR) {
                             allowTransfer = false;
                         } else {
