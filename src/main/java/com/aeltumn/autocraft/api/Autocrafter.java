@@ -3,6 +3,7 @@ package com.aeltumn.autocraft.api;
 import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.ConfigFile;
 import com.aeltumn.autocraft.CreationListener;
+import com.aeltumn.autocraft.helpers.LimitSignBridge;
 import com.aeltumn.autocraft.helpers.Utils;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -80,6 +81,8 @@ public class Autocrafter {
             // Check if there's a container being output into and if it can fit the
             // items to put in. If there is a container we only craft if we can fit it.
             if (loc.getBlock().getState() instanceof InventoryHolder c) {
+                if (!LimitSignBridge.allows(c.getInventory(), output)) continue outer;
+
                 // Try to add all items to a copy of the inventory in order so we know whether all
                 // output items can fit when given together.
                 var inventoryCopy = new ItemStack[c.getInventory().getStorageContents().length];
