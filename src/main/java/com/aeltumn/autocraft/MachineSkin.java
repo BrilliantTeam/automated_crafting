@@ -46,7 +46,7 @@ public final class MachineSkin implements Listener {
     private final Function<Block, String> typeOf;
     private final boolean dispensePulse;
     private final NamespacedKey key;
-    private final Map<String, Long> activeUntil = new ConcurrentHashMap<>();
+    private final Map<String, Integer> pulses = new ConcurrentHashMap<>();
     private final Map<String, Boolean> spinning = new ConcurrentHashMap<>();
 
     public MachineSkin(Plugin plugin, Function<Block, String> typeOf, boolean dispensePulse) {
@@ -136,7 +136,7 @@ public final class MachineSkin implements Listener {
     public void hide(Block block) {
         String at = tag(block);
         spinning.remove(at);
-        activeUntil.remove(at);
+        pulses.remove(at);
         for (ItemDisplay d : find(block)) d.remove();
     }
 
@@ -153,21 +153,23 @@ public final class MachineSkin implements Listener {
 
     public void pulse(Block block, int ticks) {
         if (!enabled()) return;
-        String at = tag(block);
         String type = type(block);
         if (type == null) return;
-        boolean idle = activeUntil.put(at, System.currentTimeMillis() + ticks * 50L - 25) == null;
-        for (ItemDisplay d : find(block)) {
-            if (idle) {
+        List<ItemDisplay> skins = find(block);
+        if (skins.isEmpty()) return;
+        String at = tag(block);
+        Integer prev = pulses.get(at);
+        int id = prev == null ? 1 : prev + 1;
+        pulses.put(at, id);
+        for (ItemDisplay d : skins) {
+            if (prev == null) {
                 d.setBrightness(light(block));
                 d.setItemStack(model(type, true));
             }
             d.getScheduler().runDelayed(plugin, t -> {
-                Long until = activeUntil.get(at);
-                if (until == null || System.currentTimeMillis() < until) return;
-                activeUntil.remove(at);
+                if (!pulses.remove(at, id)) return;
                 if (!Boolean.TRUE.equals(spinning.get(at))) d.setItemStack(model(type, false));
-            }, null, ticks);
+            }, null, Math.max(1, ticks));
         }
     }
 
@@ -210,7 +212,12 @@ public final class MachineSkin implements Listener {
             String[] part = raw.split("\\|", 2)[0].split(",");
             Block block = chunk.getWorld().getBlockAt(Integer.parseInt(part[0]), Integer.parseInt(part[1]), Integer.parseInt(part[2]));
             String type = enabled() ? type(block) : null;
-            if (type == null || !type.equals(skinType(d)) || !skinned.add(tag(block))) d.remove();
+            if (type == null || !type.equals(skinType(d)) || !skinned.add(tag(block))) {
+                d.remove();
+                continue;
+            }
+            pulses.remove(tag(block));
+            d.setItemStack(model(type, Boolean.TRUE.equals(spinning.get(tag(block)))));
         }
         if (!enabled()) return;
         for (BlockState state : chunk.getTileEntities()) {
