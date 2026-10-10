@@ -14,6 +14,7 @@ public class AutomatedCrafting extends JavaPlugin {
     public static AutomatedCrafting INSTANCE;
 
     private CrafterRegistry registry;
+    public MachineSkin skin;
     private RecipeLoader recipeLoader;
 
     /**
@@ -34,6 +35,7 @@ public class AutomatedCrafting extends JavaPlugin {
 
         recipeLoader = new RecipeLoader(this); //The recipe loader keeps track of all the recipes the autocrafters support.
         registry = new CrafterRegistryImpl(this); //The registry tracks all autocrafters and ticks them to craft every second.
+        skin = new MachineSkin(this, b -> ((CrafterRegistryImpl) registry).ready(b) ? "crafter" : null, false);
         Bukkit.getPluginManager().registerEvents(new CreationListener(), this);
     }
 

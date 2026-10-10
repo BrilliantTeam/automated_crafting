@@ -66,6 +66,13 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         return getAutocrafters(block.getWorld()).map(f -> f.get(bp) != null).orElse(false);
     }
 
+    public boolean ready(Block block) {
+        var m = getAutocrafters(block.getWorld()).map(f -> f.get(new BlockPos(block))).orElse(null);
+        if (m == null || m.getItem() == null || !ConfigFile.isMaterialAllowed(m.getItem().getType())) return false;
+        var recipes = recipeLoader.getRecipesFor(m.getItem());
+        return recipes != null && !recipes.isEmpty();
+    }
+
     @Override
     public void tick(Block block) {
         var bp = new BlockPos(block);
@@ -110,6 +117,7 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         //Inform the player how many recipes are being accepted right now
         //player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("Autocrafter is accepting " + recipes.size() + " recipe(s)"));
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, getText("§7｜§6系統§7｜§f飯娘：§7已成功設定自動合成器配方。"));
+        AutomatedCrafting.INSTANCE.skin.show(block);
         return true;
     }
 
@@ -135,6 +143,7 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         Optional<AutocrafterPositions> m = getAutocrafters(l.getWorld());
         m.ifPresent(am -> am.destroy(el));
         markDirty();
+        AutomatedCrafting.INSTANCE.skin.hide(l.getBlock());
     }
 
     @Override

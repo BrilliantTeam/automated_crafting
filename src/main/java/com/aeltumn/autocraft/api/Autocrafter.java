@@ -116,6 +116,8 @@ public class Autocrafter {
                 }
             }
 
+            AutomatedCrafting.INSTANCE.skin.pulse(bl, 30);
+
             // If a recipe was found we stop here, never craft two things
             break;
         }
