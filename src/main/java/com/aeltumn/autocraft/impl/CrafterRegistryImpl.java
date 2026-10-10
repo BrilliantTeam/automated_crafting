@@ -2,6 +2,7 @@ package com.aeltumn.autocraft.impl;
 
 import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.ConfigFile;
+import com.aeltumn.autocraft.MachineSkin;
 import com.aeltumn.autocraft.api.*;
 import com.aeltumn.autocraft.helpers.ReflectionHelper;
 import com.aeltumn.autocraft.helpers.SerializedItem;
@@ -17,7 +18,11 @@ import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Rotation;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.GlowItemFrame;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.block.Container;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.Player;
@@ -29,6 +34,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -69,8 +75,58 @@ public class CrafterRegistryImpl extends CrafterRegistry {
     public boolean ready(Block block) {
         var m = getAutocrafters(block.getWorld()).map(f -> f.get(new BlockPos(block))).orElse(null);
         if (m == null || m.getItem() == null || !ConfigFile.isMaterialAllowed(m.getItem().getType())) return false;
+        if (recipeLoader.getLoadedRecipes().isEmpty()) return true;
         var recipes = recipeLoader.getRecipesFor(m.getItem());
         return recipes != null && !recipes.isEmpty();
+    }
+
+    private static ItemFrame frame(Block block) {
+        for (ItemFrame f : block.getWorld().getNearbyEntitiesByType(ItemFrame.class, block.getLocation().add(0.5, 0.5, 0.5), 1.5)) {
+            if (f.getLocation().getBlock().getRelative(f.getAttachedFace()).equals(block)) return f;
+        }
+        return null;
+    }
+
+    private static String encode(ItemStack item) {
+        return item == null || item.getType().isAir() ? "" : Base64.getEncoder().encodeToString(item.serializeAsBytes());
+    }
+
+    private static ItemStack decode(String raw) {
+        return raw.isEmpty() ? null : ItemStack.deserializeBytes(Base64.getDecoder().decode(raw));
+    }
+
+    public String carry(Block block) {
+        var m = getAutocrafters(block.getWorld()).map(f -> f.get(new BlockPos(block))).orElse(null);
+        if (m == null) return null;
+        ItemFrame frame = frame(block);
+        if (frame == null) return encode(m.getItem());
+        return String.join("|", encode(m.getItem()), frame.getFacing().name(), String.valueOf(frame instanceof GlowItemFrame),
+                frame.getRotation().name(), encode(frame.getItem()), String.valueOf(frame.isVisible()), String.valueOf(frame.isFixed()));
+    }
+
+    public void lift(Block block) {
+        ItemFrame frame = frame(block);
+        if (frame != null) frame.remove();
+        destroy(block.getLocation());
+    }
+
+    public void place(Block block, String data, int rot) {
+        String[] part = data.split("\\|", -1);
+        ItemStack item = decode(part[0]);
+        getOrCreateAutocrafters(block.getWorld()).destroy(new BlockPos(block));
+        if (item != null) getOrCreateAutocrafters(block.getWorld()).add(new BlockPos(block), item);
+        markDirty();
+        if (part.length < 7) return;
+        BlockFace face = MachineSkin.turn(BlockFace.valueOf(part[1]), rot);
+        ItemStack shown = decode(part[4]);
+        Class<? extends ItemFrame> type = Boolean.parseBoolean(part[2]) ? GlowItemFrame.class : ItemFrame.class;
+        block.getWorld().spawn(block.getRelative(face).getLocation(), type, f -> {
+            f.setFacingDirection(face, true);
+            if (shown != null) f.setItem(shown, false);
+            f.setRotation(Rotation.valueOf(part[3]));
+            f.setVisible(Boolean.parseBoolean(part[5]));
+            f.setFixed(Boolean.parseBoolean(part[6]));
+        });
     }
 
     @Override
@@ -268,8 +324,8 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         saveTime = Long.MAX_VALUE;
 
         try {
-            if (!file.exists()) file.createNewFile();
-            FileWriter fw = new FileWriter(file);
+            File tmp = new File(file.getPath() + ".tmp");
+            FileWriter fw = new FileWriter(tmp);
             JsonWriter jw = new JsonWriter(fw);
             jw.setIndent("  ");
             jw.beginObject();
@@ -300,7 +356,8 @@ public class CrafterRegistryImpl extends CrafterRegistry {
             jw.flush();
             jw.close();
             fw.close();
-        } catch (Exception x) {
+            java.nio.file.Files.move(tmp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (Throwable x) {
             x.printStackTrace();
         }
 

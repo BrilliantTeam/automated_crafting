@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class MachineSkin implements Listener {
@@ -48,6 +49,13 @@ public final class MachineSkin implements Listener {
     private final NamespacedKey key;
     private final Map<String, Integer> pulses = new ConcurrentHashMap<>();
     private final Map<String, Boolean> spinning = new ConcurrentHashMap<>();
+    private Function<Block, String> take;
+    private Consumer<Block> drop;
+    private Put put;
+
+    public interface Put {
+        void put(Block block, String data, int rot);
+    }
 
     public MachineSkin(Plugin plugin, Function<Block, String> typeOf, boolean dispensePulse) {
         this.plugin = plugin;
@@ -55,6 +63,40 @@ public final class MachineSkin implements Listener {
         this.dispensePulse = dispensePulse;
         this.key = new NamespacedKey(plugin, "machine_skin");
         Bukkit.getPluginManager().registerEvents(this, plugin);
+    }
+
+    public MachineSkin carry(Function<Block, String> take, Consumer<Block> drop, Put put) {
+        this.take = take;
+        this.drop = drop;
+        this.put = put;
+        return this;
+    }
+
+    public String carry(Block block) {
+        return take == null || !housing(block.getType()) ? null : take.apply(block);
+    }
+
+    public void release(Block block) {
+        if (drop != null) drop.accept(block);
+        hide(block);
+    }
+
+    public void settle(Block block, String data, int rot) {
+        if (put != null && housing(block.getType())) put.put(block, data, rot);
+        ensure(block);
+    }
+
+    public static BlockFace turn(BlockFace face, int rot) {
+        for (int i = 0; i < (rot & 3); i++) {
+            face = switch (face) {
+                case NORTH -> BlockFace.EAST;
+                case EAST -> BlockFace.SOUTH;
+                case SOUTH -> BlockFace.WEST;
+                case WEST -> BlockFace.NORTH;
+                default -> face;
+            };
+        }
+        return face;
     }
 
     private boolean enabled() {

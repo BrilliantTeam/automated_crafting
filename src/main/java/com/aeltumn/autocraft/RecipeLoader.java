@@ -83,6 +83,7 @@ public class RecipeLoader {
 
         long t = System.currentTimeMillis();
         recipes.clear();
+        lruRecipeCache.clear();
         loaded.clear();
 
         // Load recipes from Bukkit, skip any that we already know.

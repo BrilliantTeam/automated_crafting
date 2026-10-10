@@ -17,20 +17,24 @@ public class LRUCache<K, V> {
         };
     }
 
-    public V get(K key) {
+    public synchronized V get(K key) {
         return cache.getOrDefault(key, null);
     }
 
-    public boolean has(K key) {
+    public synchronized boolean has(K key) {
         return cache.containsKey(key);
     }
 
-    public void put(K key, V value) {
+    public synchronized void put(K key, V value) {
         cache.put(key, value);
     }
 
+    public synchronized void clear() {
+        cache.clear();
+    }
+
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return cache.toString();
     }
 }
