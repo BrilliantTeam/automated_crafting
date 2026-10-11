@@ -262,9 +262,8 @@ public final class MachineSkin implements Listener {
             d.setItemStack(model(type, Boolean.TRUE.equals(spinning.get(tag(block)))));
         }
         if (!enabled()) return;
-        for (BlockState state : chunk.getTileEntities()) {
+        for (BlockState state : chunk.getTileEntities(b -> housing(b.getType()) && !skinned.contains(tag(b)), false)) {
             Block block = state.getBlock();
-            if (!housing(block.getType()) || skinned.contains(tag(block))) continue;
             if (type(block) != null) show(block);
         }
     }
