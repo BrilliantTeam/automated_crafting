@@ -13,6 +13,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -20,8 +21,8 @@ import java.util.stream.Collectors;
 
 public class RecipeLoader {
     private final AutomatedCrafting instance;
-    private final Set<NamespacedKey> loaded = new HashSet<>();
-    private final Set<CraftingRecipe> recipes = new HashSet<>();
+    private volatile Set<NamespacedKey> loaded = Set.of();
+    private volatile Set<CraftingRecipe> recipes = Set.of();
 
     public RecipeLoader(final AutomatedCrafting inst) {
         instance = inst;
@@ -66,15 +67,16 @@ public class RecipeLoader {
         if (lruRecipeCache.has(item))
             return lruRecipeCache.get(item);
 
-        Set<CraftingRecipe> recipeSet = recipes.stream().filter(f -> f.creates(item)).collect(Collectors.toSet());
-        lruRecipeCache.put(item, recipeSet);
+        Set<CraftingRecipe> snapshot = recipes;
+        Set<CraftingRecipe> recipeSet = snapshot.stream().filter(f -> f.creates(item)).collect(Collectors.toSet());
+        if (snapshot == recipes) lruRecipeCache.put(item, recipeSet);
         return recipeSet;
     }
 
     /**
      * Reloads all recipes from the minecraft jar and otherwise from Bukkit.
      */
-    protected void reload(final CommandSender listener) {
+    protected synchronized void reload(final CommandSender listener) {
         if (listener != null)
         //    listener.sendMessage("(Re)loading recipes...");
         //instance.getLogger().info("(Re)loading recipes...");
@@ -82,24 +84,26 @@ public class RecipeLoader {
         instance.getLogger().info("自動合成器：正在重新載入合成配方 ...");
 
         long t = System.currentTimeMillis();
-        recipes.clear();
-        lruRecipeCache.clear();
-        loaded.clear();
+        Set<NamespacedKey> newLoaded = new HashSet<>();
+        Set<CraftingRecipe> newRecipes = new HashSet<>();
 
         // Load recipes from Bukkit, skip any that we already know.
         Iterator<Recipe> it = Bukkit.recipeIterator();
         while (it.hasNext()) {
-            loadRecipe(it.next());
+            Recipe recipe = it.next();
+            if (recipe instanceof Keyed) add(newLoaded, newRecipes, new BukkitRecipe(recipe));
         }
 
         // Custom recipes
-        loadRecipe(new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_1"), 1));
-        loadRecipe(new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_2"), 2));
-        loadRecipe(new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_3"), 3));
+        add(newLoaded, newRecipes, new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_1"), 1));
+        add(newLoaded, newRecipes, new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_2"), 2));
+        add(newLoaded, newRecipes, new FireworksRecipe(NamespacedKey.minecraft("fireworks_duration_3"), 3));
 
         for (var ingredient : SuspicousStewRecipe.INGREDIENTS.keySet()) {
-            loadRecipe(new SuspicousStewRecipe(NamespacedKey.minecraft("suspicious_stew_" + ingredient.name().toLowerCase()), ingredient));
+            add(newLoaded, newRecipes, new SuspicousStewRecipe(NamespacedKey.minecraft("suspicious_stew_" + ingredient.name().toLowerCase()), ingredient));
         }
+
+        swap(newLoaded, newRecipes);
 
         // Check if any recipes were loaded
         long j = recipes.size();
@@ -115,15 +119,28 @@ public class RecipeLoader {
     /**
      * Loads a new recipe directly from a {@link CraftingRecipe} instance.
      */
-    public void loadRecipe(CraftingRecipe recipe) {
+    public synchronized void loadRecipe(CraftingRecipe recipe) {
+        Set<NamespacedKey> newLoaded = new HashSet<>(loaded);
+        Set<CraftingRecipe> newRecipes = new HashSet<>(recipes);
+        if (add(newLoaded, newRecipes, recipe)) swap(newLoaded, newRecipes);
+    }
+
+    private static boolean add(Set<NamespacedKey> loaded, Set<CraftingRecipe> recipes, CraftingRecipe recipe) {
         // Ignore recipes that have already been loaded
-        if (loaded.contains(recipe.getKey())) return;
+        if (loaded.contains(recipe.getKey())) return false;
 
         // Ignore all unknown recipes
-        if (recipe.getType() == RecipeType.UNKNOWN) return;
+        if (recipe.getType() == RecipeType.UNKNOWN) return false;
 
         recipes.add(recipe);
         loaded.add(recipe.getKey());
+        return true;
+    }
+
+    private void swap(Set<NamespacedKey> newLoaded, Set<CraftingRecipe> newRecipes) {
+        loaded = Collections.unmodifiableSet(newLoaded);
+        recipes = Collections.unmodifiableSet(newRecipes);
+        lruRecipeCache.clear();
     }
 
     /**

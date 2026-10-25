@@ -29,7 +29,7 @@ public class BukkitRecipe implements CraftingRecipe {
     private final ItemStack result;
     private NamespacedKey namespacedKey = null;
     private RecipeType type = RecipeType.UNKNOWN;
-    private List<RecipeRequirement> requirements;
+    private volatile List<RecipeRequirement> requirements;
     //Shaped Recipes
     private String[] pattern;
     private Map<Character, Collection<ItemStack>> key;
@@ -124,7 +124,7 @@ public class BukkitRecipe implements CraftingRecipe {
      */
     private List<RecipeRequirement> getRequirements() {
         if (requirements == null) {
-            requirements = new ArrayList<>();
+            List<RecipeRequirement> requirements = new ArrayList<>();
             switch (type) {
                 case SHAPED -> {
                     //Count how many times each character in the pattern occurrences
@@ -157,6 +157,7 @@ public class BukkitRecipe implements CraftingRecipe {
 
             // Remove empty requirements
             requirements.removeIf(RecipeRequirement::isInvalid);
+            this.requirements = requirements;
         }
         return requirements;
     }
