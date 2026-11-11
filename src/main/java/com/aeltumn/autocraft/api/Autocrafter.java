@@ -4,6 +4,7 @@ import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.ConfigFile;
 import com.aeltumn.autocraft.CreationListener;
 import com.aeltumn.autocraft.helpers.LimitSignBridge;
+import com.aeltumn.autocraft.helpers.PackerBridge;
 import com.aeltumn.autocraft.helpers.Utils;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -83,18 +84,25 @@ public class Autocrafter {
             if (loc.getBlock().getState() instanceof InventoryHolder c) {
                 if (!LimitSignBridge.allows(c.getInventory(), output)) continue outer;
 
-                // Try to add all items to a copy of the inventory in order so we know whether all
-                // output items can fit when given together.
-                var inventoryCopy = new ItemStack[c.getInventory().getStorageContents().length];
-                for (var i = 0; i < inventoryCopy.length; i++) {
-                    var it = c.getInventory().getStorageContents()[i];
-                    if (it != null) {
-                        inventoryCopy[i] = it.clone();
+                // A BrilliantPacker packs the output straight into its shulker boxes, so it has to
+                // fit in those boxes rather than in the dispenser's own slots.
+                var packable = PackerBridge.offer(c.getInventory(), output, true);
+                if (packable >= 0) {
+                    if (packable < output.stream().mapToInt(ItemStack::getAmount).sum()) continue outer;
+                } else {
+                    // Try to add all items to a copy of the inventory in order so we know whether all
+                    // output items can fit when given together.
+                    var inventoryCopy = new ItemStack[c.getInventory().getStorageContents().length];
+                    for (var i = 0; i < inventoryCopy.length; i++) {
+                        var it = c.getInventory().getStorageContents()[i];
+                        if (it != null) {
+                            inventoryCopy[i] = it.clone();
+                        }
                     }
-                }
-                for (var item : output) {
-                    if (!Utils.addItem(inventoryCopy, item.clone())) {
-                        continue outer;
+                    for (var item : output) {
+                        if (!Utils.addItem(inventoryCopy, item.clone())) {
+                            continue outer;
+                        }
                     }
                 }
             }
@@ -104,8 +112,10 @@ public class Autocrafter {
 
             if (loc.getBlock().getState() instanceof InventoryHolder c) {
                 // Put the output in the output container
-                for (var item : output) {
-                    c.getInventory().addItem(item);
+                if (PackerBridge.offer(c.getInventory(), output, false) < 0) {
+                    for (var item : output) {
+                        c.getInventory().addItem(item);
+                    }
                 }
             } else {
                 // Drop the items if no container wants them
