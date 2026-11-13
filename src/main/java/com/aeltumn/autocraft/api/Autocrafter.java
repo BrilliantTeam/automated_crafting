@@ -6,6 +6,7 @@ import com.aeltumn.autocraft.CreationListener;
 import com.aeltumn.autocraft.helpers.ExpHopperBridge;
 import com.aeltumn.autocraft.helpers.LimitSignBridge;
 import com.aeltumn.autocraft.helpers.PackerBridge;
+import com.aeltumn.autocraft.helpers.TrashChestBridge;
 import com.aeltumn.autocraft.helpers.Utils;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -82,7 +83,8 @@ public class Autocrafter {
 
             // Check if there's a container being output into and if it can fit the
             // items to put in. If there is a container we only craft if we can fit it.
-            if (loc.getBlock().getState() instanceof InventoryHolder c) {
+            var trash = loc.getBlock().getState() instanceof InventoryHolder h && TrashChestBridge.accepts(h.getInventory());
+            if (!trash && loc.getBlock().getState() instanceof InventoryHolder c) {
                 if (!LimitSignBridge.allows(c.getInventory(), output)) continue outer;
                 if (!ExpHopperBridge.allows(c.getInventory(), output)) continue outer;
 
@@ -112,6 +114,7 @@ public class Autocrafter {
             // Perform the actual crafting
             solution.applyTo(container.getInventory());
 
+            if (trash) output.clear();
             if (loc.getBlock().getState() instanceof InventoryHolder c) {
                 // Put the output in the output container
                 if (PackerBridge.offer(c.getInventory(), output, false) < 0) {
