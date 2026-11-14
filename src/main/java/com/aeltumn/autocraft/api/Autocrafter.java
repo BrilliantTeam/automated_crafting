@@ -3,17 +3,17 @@ package com.aeltumn.autocraft.api;
 import com.aeltumn.autocraft.AutomatedCrafting;
 import com.aeltumn.autocraft.ConfigFile;
 import com.aeltumn.autocraft.CreationListener;
+import com.aeltumn.autocraft.helpers.DropperOutput;
 import com.aeltumn.autocraft.helpers.ExpHopperBridge;
 import com.aeltumn.autocraft.helpers.LimitSignBridge;
 import com.aeltumn.autocraft.helpers.PackerBridge;
 import com.aeltumn.autocraft.helpers.TrashChestBridge;
-import com.aeltumn.autocraft.helpers.Utils;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.Directional;
-import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -83,52 +83,37 @@ public class Autocrafter {
 
             // Check if there's a container being output into and if it can fit the
             // items to put in. If there is a container we only craft if we can fit it.
-            var trash = loc.getBlock().getState() instanceof InventoryHolder h && TrashChestBridge.accepts(h.getInventory());
-            if (!trash && loc.getBlock().getState() instanceof InventoryHolder c) {
-                if (!LimitSignBridge.allows(c.getInventory(), output)) continue outer;
-                if (!ExpHopperBridge.allows(c.getInventory(), output)) continue outer;
+            var front = loc.getBlock();
+            var facing = autocrafter.getFacing();
+            var composter = front.getType() == Material.COMPOSTER;
+            var into = composter ? null : DropperOutput.containerAt(front);
+            var trash = into != null && TrashChestBridge.accepts(into);
+            if (composter && !DropperOutput.canCompost(front, facing, output)) continue outer;
+            if (!trash && into != null) {
+                if (!LimitSignBridge.allows(into, output)) continue outer;
+                if (!ExpHopperBridge.allows(into, output)) continue outer;
 
                 // A BrilliantPacker packs the output straight into its shulker boxes, so it has to
                 // fit in those boxes rather than in the dispenser's own slots.
-                var packable = PackerBridge.offer(c.getInventory(), output, true);
+                var packable = PackerBridge.offer(into, output, true);
                 if (packable >= 0) {
                     if (packable < output.stream().mapToInt(ItemStack::getAmount).sum()) continue outer;
-                } else {
-                    // Try to add all items to a copy of the inventory in order so we know whether all
-                    // output items can fit when given together.
-                    var inventoryCopy = new ItemStack[c.getInventory().getStorageContents().length];
-                    for (var i = 0; i < inventoryCopy.length; i++) {
-                        var it = c.getInventory().getStorageContents()[i];
-                        if (it != null) {
-                            inventoryCopy[i] = it.clone();
-                        }
-                    }
-                    for (var item : output) {
-                        if (!Utils.addItem(inventoryCopy, item.clone())) {
-                            continue outer;
-                        }
-                    }
+                } else if (!DropperOutput.insert(into, facing, output, false)) {
+                    continue outer;
                 }
             }
 
             // Perform the actual crafting
             solution.applyTo(container.getInventory());
 
-            if (trash) output.clear();
-            if (loc.getBlock().getState() instanceof InventoryHolder c) {
-                // Put the output in the output container
-                if (PackerBridge.offer(c.getInventory(), output, false) < 0) {
-                    for (var item : output) {
-                        c.getInventory().addItem(item);
-                    }
-                }
+            if (trash) {
+                output.clear();
+            } else if (composter) {
+                DropperOutput.compost(front, output.get(0));
+            } else if (into != null) {
+                if (PackerBridge.offer(into, output, false) < 0) DropperOutput.insert(into, facing, output, true);
             } else {
-                // Drop the items if no container wants them
-                if (loc.getWorld() != null) {
-                    for (var item : output) {
-                        loc.getWorld().dropItem(loc.clone().add(0.5, 0.25, 0.5), item);
-                    }
-                }
+                DropperOutput.drop(bl, facing, output);
             }
 
             AutomatedCrafting.INSTANCE.skin.pulse(bl, 30);

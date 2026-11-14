@@ -29,7 +29,7 @@ public class SuspicousStewRecipe extends CustomRecipe {
         addIngredient(Material.WHITE_TULIP, PotionEffectType.WEAKNESS, 9);
         addIngredient(Material.PINK_TULIP, PotionEffectType.WEAKNESS, 9);
         addIngredient(Material.OXEYE_DAISY, PotionEffectType.REGENERATION, 8);
-        addIngredient(Material.CORNFLOWER, PotionEffectType.JUMP, 6);
+        addIngredient(Material.CORNFLOWER, PotionEffectType.JUMP_BOOST, 6);
         addIngredient(Material.WITHER_ROSE, PotionEffectType.WITHER, 8);
         addIngredient(Material.LILY_OF_THE_VALLEY, PotionEffectType.POISON, 12);
         addIngredient(Material.AZURE_BLUET, PotionEffectType.BLINDNESS, 8);

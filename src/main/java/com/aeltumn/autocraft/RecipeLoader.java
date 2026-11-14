@@ -2,6 +2,7 @@ package com.aeltumn.autocraft;
 
 import com.aeltumn.autocraft.api.CraftingRecipe;
 import com.aeltumn.autocraft.api.RecipeType;
+import com.aeltumn.autocraft.helpers.DropperOutput;
 import com.aeltumn.autocraft.helpers.LRUCache;
 import com.aeltumn.autocraft.impl.BukkitRecipe;
 import com.aeltumn.autocraft.impl.recipes.FireworksRecipe;
@@ -84,6 +85,7 @@ public class RecipeLoader {
         instance.getLogger().info("自動合成器：正在重新載入合成配方 ...");
 
         long t = System.currentTimeMillis();
+        DropperOutput.reloadBrewing();
         Set<NamespacedKey> newLoaded = new HashSet<>();
         Set<CraftingRecipe> newRecipes = new HashSet<>();
 
