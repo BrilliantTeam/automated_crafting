@@ -44,15 +44,12 @@ public class CreationListener implements Listener {
      * @param existing Only return true if this block is also already an autocrafter.
      */
     public static boolean isValidBlock(final Block bl, boolean existing) {
-        //If the block is not any of the allowed states.
-        BlockState state = bl.getState(false);
-        if ((!ConfigFile.allowDispensers() || !(state instanceof Dispenser)) &&
-                (!ConfigFile.allowChests() || !(state instanceof Chest)) &&
-                !(state instanceof Dropper))
-            return false;
+        if (existing && !AutomatedCrafting.INSTANCE.getCrafterRegistry().isAutocrafter(bl)) return false;
 
-        //Test if we can find an autocrafter on this block if applicable.
-        return !existing || AutomatedCrafting.INSTANCE.getCrafterRegistry().isAutocrafter(bl);
+        Material type = bl.getType();
+        return type == Material.DROPPER
+                || type == Material.DISPENSER && ConfigFile.allowDispensers()
+                || (type == Material.CHEST || type == Material.TRAPPED_CHEST) && ConfigFile.allowChests();
     }
 
     private ItemStack getOutputItem(Block block) {
@@ -100,7 +97,7 @@ public class CreationListener implements Listener {
 
         if (!ConfigFile.craftOnRedstonePulse()) return;
 
-        InventoryHolder destHolder = e.getDestination().getHolder();
+        InventoryHolder destHolder = e.getDestination().getHolder(false);
         boolean isInputFromBelow = false;
 
         if (destHolder instanceof org.bukkit.block.Hopper hopper) {

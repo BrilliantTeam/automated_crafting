@@ -45,7 +45,7 @@ public class Autocrafter {
         Block bl = chunk.getBlock(position.getX(), position.getY(), position.getZ());
 
         //If the block was broken we mark it broken and no longer save it next time.
-        if (!CreationListener.isValidBlock(bl, false) || !(bl.getState() instanceof final Container container)) {
+        if (!CreationListener.isValidBlock(bl, false) || !(bl.getState(false) instanceof final Container container)) {
             markBroken();
             return;
         }
