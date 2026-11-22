@@ -10,6 +10,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Crafter;
+import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -30,6 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class DropperOutput {
     private static final int[] FURNACE_UP = {0}, FURNACE_DOWN = {2, 1}, FURNACE_SIDE = {1};
     private static final int[] BREWING_UP = {3}, BREWING_DOWN = {0, 1, 2, 3}, BREWING_SIDE = {0, 1, 2, 4};
+    private static final int HOPPER_COOLDOWN = 8;
     private static volatile List<RecipeChoice> reagents, potionInputs;
 
     private DropperOutput() {
@@ -43,13 +45,22 @@ public final class DropperOutput {
     }
 
     public static boolean insert(Inventory into, BlockFace facing, List<ItemStack> items, boolean apply) {
+        return place(into, facing, items, apply, false) == 0;
+    }
+
+    public static int add(Inventory into, BlockFace facing, ItemStack item) {
+        return place(into, facing, List.of(item), true, true);
+    }
+
+    private static int place(Inventory into, BlockFace facing, List<ItemStack> items, boolean apply, boolean partial) {
         ItemStack[] real = into.getContents();
         ItemStack[] slots = new ItemStack[real.length];
         for (int i = 0; i < real.length; i++) slots[i] = real[i] == null || real[i].isEmpty() ? null : real[i].clone();
         boolean[] changed = new boolean[slots.length];
         InventoryType type = into.getType();
-        int[] order = order(type, facing.getOppositeFace(), slots.length);
+        int[] order = order(type, facing == null ? null : facing.getOppositeFace(), slots.length);
         Crafter crafter = into.getHolder(false) instanceof Crafter c ? c : null;
+        int left = 0;
 
         for (ItemStack item : items) {
             int amount = item.getAmount();
@@ -70,24 +81,37 @@ public final class DropperOutput {
                     changed[slot] = true;
                 }
             }
-            if (amount > 0) return false;
+            if (amount > 0 && !partial) return amount;
+            left += amount;
         }
         if (apply) {
-            for (int i = 0; i < slots.length; i++) if (changed[i]) into.setItem(i, slots[i]);
+            boolean wasEmpty = into.isEmpty();
+            boolean moved = false;
+            for (int i = 0; i < slots.length; i++) {
+                if (!changed[i]) continue;
+                into.setItem(i, slots[i]);
+                moved = true;
+            }
+            if (moved && wasEmpty && into.getHolder(false) instanceof Hopper hopper && hopper.getTransferCooldown() <= HOPPER_COOLDOWN) {
+                hopper.setTransferCooldown(HOPPER_COOLDOWN);
+            }
         }
-        return true;
+        return left;
     }
 
     private static int[] order(InventoryType type, BlockFace face, int size) {
+        if (face == null) return allSlots(size);
         return switch (type) {
             case FURNACE, BLAST_FURNACE, SMOKER -> face == BlockFace.UP ? FURNACE_UP : face == BlockFace.DOWN ? FURNACE_DOWN : FURNACE_SIDE;
             case BREWING -> face == BlockFace.UP ? BREWING_UP : face == BlockFace.DOWN ? BREWING_DOWN : BREWING_SIDE;
-            default -> {
-                int[] all = new int[size];
-                for (int i = 0; i < size; i++) all[i] = i;
-                yield all;
-            }
+            default -> allSlots(size);
         };
+    }
+
+    private static int[] allSlots(int size) {
+        int[] all = new int[size];
+        for (int i = 0; i < size; i++) all[i] = i;
+        return all;
     }
 
     private static boolean canPlace(InventoryType type, Inventory into, Crafter crafter, ItemStack[] slots, int slot, ItemStack item) {
