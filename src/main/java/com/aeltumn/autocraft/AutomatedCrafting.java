@@ -1,5 +1,6 @@
 package com.aeltumn.autocraft;
 
+import org.bukkit.block.Block;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.aeltumn.autocraft.api.CrafterRegistry;
@@ -73,5 +74,9 @@ public class AutomatedCrafting extends JavaPlugin {
 
     public void warning(String text) {
         getLogger().warning(text);
+    }
+
+    public boolean machineShell(Block block) {
+        return registry != null && registry.isAutocrafter(block);
     }
 }
