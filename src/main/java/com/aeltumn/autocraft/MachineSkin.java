@@ -49,6 +49,11 @@ public final class MachineSkin implements Listener {
     private final NamespacedKey key;
     private final Map<String, Integer> pulses = new ConcurrentHashMap<>();
     private final Map<String, Boolean> spinning = new ConcurrentHashMap<>();
+    private final Map<String, String> marks = new ConcurrentHashMap<>();
+    private final Map<String, org.bukkit.Location> seen = new ConcurrentHashMap<>();
+    private static final Set<String> STATES = Set.of("duper_blocked", "duper_empty", "packer_blocked", "packer_empty",
+            "crafter_blocked", "crafter_empty", "reflux_blocked", "reflux_side_blocked", "transporter_in_blocked",
+            "transporter_out_blocked", "breaker_empty", "placer_empty", "damager_empty", "feeder_empty", "stripper_empty", "pather_empty");
     private Function<Block, String> take;
     private Consumer<Block> drop;
     private Put put;
@@ -70,6 +75,28 @@ public final class MachineSkin implements Listener {
         this.drop = drop;
         this.put = put;
         return this;
+    }
+
+    public MachineSkin watch(Function<Block, String> status) {
+        Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> {
+            for (org.bukkit.Location loc : seen.values()) {
+                Bukkit.getRegionScheduler().execute(plugin, loc, () -> {
+                    if (!loc.isChunkLoaded()) return;
+                    Block block = loc.getBlock();
+                    if (type(block) != null) mark(block, status.apply(block));
+                });
+            }
+        }, 40L, 40L);
+        return this;
+    }
+
+    public static String stocked(Block block, java.util.function.Predicate<ItemStack> usable) {
+        if (block.getState(false) instanceof org.bukkit.block.Container container) {
+            for (ItemStack item : container.getInventory().getContents()) {
+                if (item != null && !item.getType().isAir() && usable.test(item)) return null;
+            }
+        }
+        return "empty";
     }
 
     public String carry(Block block) {
@@ -124,6 +151,11 @@ public final class MachineSkin implements Listener {
         return Bukkit.getItemFactory().createItemStack("minecraft:paper[minecraft:item_model=\"brilliant:machine/" + type + (active ? "_active" : "") + "\"]");
     }
 
+    private ItemStack rest(Block block, String type) {
+        String mark = marks.get(tag(block));
+        return model(mark != null && STATES.contains(type + "_" + mark) ? type + "_" + mark : type, false);
+    }
+
     private static Transformation shape(Block block) {
         Quaternionf turn = new Quaternionf();
         if (block.getBlockData() instanceof Directional directional) {
@@ -161,24 +193,29 @@ public final class MachineSkin implements Listener {
     }
 
     public void show(Block block) {
+        String mark = marks.get(tag(block));
         hide(block);
+        if (mark != null) marks.put(tag(block), mark);
         String type = type(block);
         if (!enabled() || type == null) return;
         block.getWorld().spawn(block.getLocation().add(0.5, 0.5, 0.5), ItemDisplay.class, d -> {
             d.setPersistent(true);
-            d.setItemStack(model(type, false));
+            d.setItemStack(rest(block, type));
             d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             d.setTransformation(shape(block));
             d.setBrightness(light(block));
             d.setViewRange(1.5f);
             d.getPersistentDataContainer().set(key, PersistentDataType.STRING, tag(block) + "|" + type);
         });
+        seen.put(tag(block), block.getLocation());
     }
 
     public void hide(Block block) {
         String at = tag(block);
         spinning.remove(at);
         pulses.remove(at);
+        marks.remove(at);
+        seen.remove(at);
         for (ItemDisplay d : find(block)) d.remove();
     }
 
@@ -210,7 +247,7 @@ public final class MachineSkin implements Listener {
             }
             d.getScheduler().runDelayed(plugin, t -> {
                 if (!pulses.remove(at, id)) return;
-                if (!Boolean.TRUE.equals(spinning.get(at))) d.setItemStack(model(type, false));
+                if (!Boolean.TRUE.equals(spinning.get(at))) d.setItemStack(rest(block, type));
             }, null, Math.max(1, ticks));
         }
     }
@@ -225,8 +262,18 @@ public final class MachineSkin implements Listener {
         if (!enabled() || type == null || was == null && !on) return;
         for (ItemDisplay d : find(block)) {
             if (on) d.setBrightness(light(block));
-            d.setItemStack(model(type, on));
+            d.setItemStack(on ? model(type, true) : rest(block, type));
         }
+    }
+
+    public void mark(Block block, String status) {
+        String at = tag(block);
+        String was = status == null ? marks.remove(at) : marks.put(at, status);
+        if (java.util.Objects.equals(was, status)) return;
+        if (!enabled() || pulses.containsKey(at) || Boolean.TRUE.equals(spinning.get(at))) return;
+        String type = type(block);
+        if (type == null) return;
+        for (ItemDisplay d : find(block)) d.setItemStack(rest(block, type));
     }
 
     private void later(Block block, Runnable task) {
@@ -259,7 +306,8 @@ public final class MachineSkin implements Listener {
                 continue;
             }
             pulses.remove(tag(block));
-            d.setItemStack(model(type, Boolean.TRUE.equals(spinning.get(tag(block)))));
+            seen.put(tag(block), block.getLocation());
+            d.setItemStack(Boolean.TRUE.equals(spinning.get(tag(block))) ? model(type, true) : rest(block, type));
         }
         if (!enabled()) return;
         for (BlockState state : chunk.getTileEntities(b -> housing(b.getType()) && !skinned.contains(tag(b)), false)) {

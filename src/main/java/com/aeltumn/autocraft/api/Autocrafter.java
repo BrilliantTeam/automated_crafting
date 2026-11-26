@@ -51,17 +51,24 @@ public class Autocrafter {
         }
 
         // If locked we don't craft.
-        if (container.isLocked())
+        if (container.isLocked()) {
+            AutomatedCrafting.INSTANCE.skin.mark(bl, null);
             return;
+        }
 
         // If powered and not crafting based on signal we don't craft.
         if (!ConfigFile.craftOnRedstonePulse()) {
-            if (bl.getBlockPower() > 0) return;
+            if (bl.getBlockPower() > 0) {
+                AutomatedCrafting.INSTANCE.skin.mark(bl, null);
+                return;
+            }
         }
 
         // Never craft a material that is banned
         if (!ConfigFile.isMaterialAllowed(item.getType())) return;
 
+        boolean ready = false;
+        boolean crafted = false;
         outer:
         for (CraftingRecipe recipe : AutomatedCrafting.INSTANCE.getRecipeLoader().getRecipesFor(item)) {
             if (recipe == null) continue;
@@ -69,6 +76,7 @@ public class Autocrafter {
             // Check if the dropper contains all required items to craft the result.
             if (!recipe.containsRequirements(container.getInventory()))
                 continue;
+            ready = true;
 
             final Directional autocrafter = (Directional) bl.getBlockData();
             final Location loc = bl.getLocation().getBlock().getRelative(autocrafter.getFacing()).getLocation();
@@ -116,11 +124,14 @@ public class Autocrafter {
                 DropperOutput.drop(bl, facing, output);
             }
 
+            AutomatedCrafting.INSTANCE.skin.mark(bl, null);
             AutomatedCrafting.INSTANCE.skin.pulse(bl, 30);
+            crafted = true;
 
             // If a recipe was found we stop here, never craft two things
             break;
         }
+        if (!crafted) AutomatedCrafting.INSTANCE.skin.mark(bl, ready ? "blocked" : "empty");
     }
 
     /**
