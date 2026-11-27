@@ -230,6 +230,15 @@ public final class MachineSkin implements Listener {
         show(block);
     }
 
+    public String skinOf(Block block) {
+        String type = type(block);
+        if (type == null) return null;
+        String at = tag(block);
+        if (pulses.containsKey(at) || Boolean.TRUE.equals(spinning.get(at))) return type + "_active";
+        String mark = marks.get(at);
+        return mark != null && STATES.contains(type + "_" + mark) ? type + "_" + mark : type;
+    }
+
     public void pulse(Block block, int ticks) {
         if (!enabled()) return;
         String type = type(block);

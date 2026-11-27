@@ -72,6 +72,11 @@ public class CrafterRegistryImpl extends CrafterRegistry {
         return getAutocrafters(block.getWorld()).map(f -> f.get(bp) != null).orElse(false);
     }
 
+    public ItemStack item(Block block) {
+        var m = getAutocrafters(block.getWorld()).map(f -> f.get(new BlockPos(block))).orElse(null);
+        return m == null ? null : m.getItem();
+    }
+
     public boolean ready(Block block) {
         var m = getAutocrafters(block.getWorld()).map(f -> f.get(new BlockPos(block))).orElse(null);
         if (m == null || m.getItem() == null || !ConfigFile.isMaterialAllowed(m.getItem().getType())) return false;
